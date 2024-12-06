@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h2>Athlete Profile</h2>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Profile Information -->
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Personal Information</h5>
+                <form id="profileForm">
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input type="text" class="form-control" name="name" value="{{ athlete.name }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email" value="{{ athlete.email }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Device ID</label>
+                        <input type="text" class="form-control" name="device_id" value="{{ athlete.device_id }}">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Update Profile</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Device Connection -->
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Connected Devices</h5>
+                <div class="list-group">
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">Fitness Tracker</h6>
+                            <small class="text-success">Connected</small>
+                        </div>
+                        <p class="mb-1">Device ID: {{ athlete.device_id or 'Not connected' }}</p>
+                    </div>
+                </div>
+                <button class="btn btn-outline-primary mt-3" data-bs-toggle="modal" data-bs-target="#connectDeviceModal">
+                    Connect New Device
+                </button>
+            </div>
+        </div>
+
+        <!-- Settings -->
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Settings</h5>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="emailNotifications" checked>
+                    <label class="form-check-label" for="emailNotifications">
+                        Email Notifications
+                    </label>
+                </div>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="riskAlerts" checked>
+                    <label class="form-check-label" for="riskAlerts">
+                        Risk Alerts
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Connect Device Modal -->
+<div class="modal fade" id="connectDeviceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Connect New Device</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Select Device Type</label>
+                    <select class="form-select" id="deviceType">
+                        <option value="fitbit">Fitbit</option>
+                        <option value="garmin">Garmin</option>
+                        <option value="apple">Apple Watch</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="connectDevice()">Connect Device</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('profileForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    
+    try {
+        const response = await fetch('/api/athlete/1', {  // Using athlete_id 1 for demo
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            alert('Profile updated successfully!');
+        } else {
+            const result = await response.json();
+            alert('Failed to update profile: ' + result.message);
+        }
+    } catch (error) {
+        alert('Error updating profile: ' + error.message);
+    }
+});
+
+function connectDevice() {
+    const deviceType = document.getElementById('deviceType').value;
+    // Here you would typically implement OAuth flow for the selected device
+    alert('Connecting to ' + deviceType + '...\nThis would typically open the device\'s OAuth flow.');
+}
+
+// Save settings
+document.getElementById('emailNotifications').addEventListener('change', (e) => {
+    localStorage.setItem('emailNotifications', e.target.checked);
+});
+
+document.getElementById('riskAlerts').addEventListener('change', (e) => {
+    localStorage.setItem('riskAlerts', e.target.checked);
+});
+
+// Load saved settings
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('emailNotifications').checked = 
+        localStorage.getItem('emailNotifications') !== 'false';
+    document.getElementById('riskAlerts').checked = 
+        localStorage.getItem('riskAlerts') !== 'false';
+});
+</script>
+{% endblock %}

@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2 text-center">
+        <h1 class="display-4 mb-4">Welcome to Athlete Digital Twin</h1>
+        <p class="lead">Monitor your fitness, track supplements, and stay compliant with anti-doping regulations.</p>
+        
+        <div class="row mt-5">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">New Athlete?</h5>
+                        <p class="card-text">Register to start tracking your fitness and supplements.</p>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#registerModal">
+                            Register Now
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Existing Athlete?</h5>
+                        <p class="card-text">Sign in to view your dashboard.</p>
+                        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#loginModal">
+                            Sign In
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Register Modal -->
+<div class="modal fade" id="registerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Register New Athlete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="registerForm">
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Device ID</label>
+                        <input type="text" class="form-control" name="device_id">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Register</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Login Modal -->
+<div class="modal fade" id="loginModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Sign In</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="loginForm">
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email" required>
+                    </div>
+                    <button type="submit" class="btn btn-success">Sign In</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('registerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = {
+        name: formData.get('name'),
+        email: formData.get('email'),
+        device_id: formData.get('device_id')
+    };
+    
+    try {
+        const response = await fetch('/api/athlete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        if (result.athlete_id) {
+            alert('Registration successful!');
+            window.location.href = `/dashboard/${result.athlete_id}`;
+        } else {
+            alert('Registration successful but no athlete ID returned');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error during registration: ' + error.message);
+    }
+});
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const email = formData.get('email');
+    
+    try {
+        const response = await fetch('/api/athlete');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const athletes = await response.json();
+        const athlete = athletes.find(a => a.email === email);
+        
+        if (athlete) {
+            window.location.href = `/dashboard/${athlete.id}`;
+        } else {
+            alert('Athlete not found with this email.');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error during login: ' + error.message);
+    }
+});
+</script>
+{% endblock %}

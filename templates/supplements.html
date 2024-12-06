@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}Supplements{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h2>Supplement Tracker</h2>
+        <p class="text-muted">Track and monitor your supplement intake</p>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Add Supplement Form -->
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Add New Supplement</h5>
+                <form id="supplementForm">
+                    <div class="mb-3">
+                        <label class="form-label">Supplement Name</label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Dosage</label>
+                        <input type="text" class="form-control" name="dosage" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Supplement</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Supplement History -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Supplement History</h5>
+                <div id="supplementHistory" class="list-group">
+                    <p class="text-muted">Loading supplement history...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Risk Information Modal -->
+<div class="modal fade" id="riskInfoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Supplement Risk Information</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h6>Risk Levels:</h6>
+                <ul>
+                    <li><strong class="text-danger">High Risk:</strong> Banned or potentially dangerous substances</li>
+                    <li><strong class="text-warning">Medium Risk:</strong> Use with caution, may require monitoring</li>
+                    <li><strong class="text-success">Low Risk:</strong> Generally safe when used as directed</li>
+                </ul>
+                <p>Always consult with your healthcare provider before starting any new supplement.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('supplementForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    
+    try {
+        const response = await fetch('/api/supplement/1', {  // Using athlete_id 1 for demo
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        
+        if (response.ok) {
+            alert('Supplement added successfully!');
+            loadSupplementHistory();
+            e.target.reset();
+        } else {
+            alert('Failed to add supplement: ' + result.message);
+        }
+    } catch (error) {
+        alert('Error adding supplement: ' + error.message);
+    }
+});
+
+async function loadSupplementHistory() {
+    try {
+        const response = await fetch('/api/supplement/1');  // Using athlete_id 1 for demo
+        const supplements = await response.json();
+        
+        const historyDiv = document.getElementById('supplementHistory');
+        historyDiv.innerHTML = supplements.map(supp => `
+            <div class="list-group-item">
+                <div class="d-flex w-100 justify-content-between">
+                    <h6 class="mb-1">${supp.name}</h6>
+                    <small class="text-muted">${new Date(supp.timestamp).toLocaleString()}</small>
+                </div>
+                <p class="mb-1">Dosage: ${supp.dosage}</p>
+                <small class="risk-level ${getRiskClass(supp.risk_level)}">
+                    Risk Level: ${supp.risk_level}
+                </small>
+            </div>
+        `).join('') || '<p class="text-muted">No supplements recorded</p>';
+    } catch (error) {
+        console.error('Error loading supplement history:', error);
+    }
+}
+
+function getRiskClass(riskLevel) {
+    switch(riskLevel.toLowerCase()) {
+        case 'high': return 'text-danger';
+        case 'medium': return 'text-warning';
+        case 'low': return 'text-success';
+        default: return 'text-muted';
+    }
+}
+
+// Load initial data
+loadSupplementHistory();
+</script>
+{% endblock %}

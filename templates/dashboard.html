@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h2>Welcome, {{ athlete.name }}</h2>
+        <p class="text-muted">Athlete ID: {{ athlete.id }} | Device ID: {{ athlete.device_id }}</p>
+        <div id="connectionStatus" class="alert alert-info">Connecting to device...</div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Real-time Metrics -->
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h4 class="card-title">Real-time Heart Rate</h4>
+                <canvas id="heartRateChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Daily Stats -->
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Daily Stats</h5>
+                <div class="list-group">
+                    <div class="list-group-item">
+                        <h6 class="mb-1">Steps</h6>
+                        <p class="mb-1" id="stepsCount">Loading...</p>
+                    </div>
+                    <div class="list-group-item">
+                        <h6 class="mb-1">Sleep Hours</h6>
+                        <p class="mb-1" id="sleepHours">Loading...</p>
+                    </div>
+                    <div class="list-group-item">
+                        <h6 class="mb-1">HRV Score</h6>
+                        <p class="mb-1" id="hrvScore">Loading...</p>
+                    </div>
+                    <div class="list-group-item">
+                        <h6 class="mb-1">Hydration Level</h6>
+                        <p class="mb-1" id="hydrationLevel">Loading...</p>
+                    </div>
+                    <div class="list-group-item">
+                        <h6 class="mb-1">Recovery Score</h6>
+                        <p class="mb-1" id="recoveryScore">Loading...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Recent Supplements -->
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Recent Supplements</h5>
+                <div id="recentSupplements" class="list-group">
+                    <p class="text-muted">Loading supplements...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Risk Alerts -->
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Risk Alerts</h5>
+                <div id="riskAlerts" class="list-group">
+                    <p class="text-muted">No current alerts</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Initialize socket connection
+    const socket = io('http://127.0.0.1:5000');
+    const athleteId = {{ athlete.id }};
+    const connectionStatus = document.getElementById('connectionStatus');
+    
+    socket.on('connect', () => {
+        connectionStatus.className = 'alert alert-success';
+        connectionStatus.textContent = 'Connected to device';
+        console.log('WebSocket connected');
+    });
+
+    socket.on('disconnect', () => {
+        connectionStatus.className = 'alert alert-danger';
+        connectionStatus.textContent = 'Disconnected from device';
+        console.log('WebSocket disconnected');
+    });
+
+    socket.on('connect_error', (error) => {
+        connectionStatus.className = 'alert alert-danger';
+        connectionStatus.textContent = 'Connection error: ' + error;
+        console.error('Connection error:', error);
+    });
+    
+    // Initialize heart rate chart
+    const ctx = document.getElementById('heartRateChart').getContext('2d');
+    const heartRateChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Heart Rate (BPM)',
+                data: [],
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1,
+                fill: false
+            }]
+        },
+        options: {
+            responsive: true,
+            animation: {
+                duration: 0
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Time'
+                    }
+                },
+                y: {
+                    beginAtZero: false,
+                    min: 40,
+                    max: 200,
+                    title: {
+                        display: true,
+                        text: 'Heart Rate (BPM)'
+                    }
+                }
+            }
+        }
+    });
+
+    // Socket.IO event listeners
+    socket.on('metrics_update', (data) => {
+        console.log('Received metrics update:', data);
+        if (data.athlete_id === athleteId) {
+            // Update heart rate chart
+            const labels = heartRateChart.data.labels;
+            const dataset = heartRateChart.data.datasets[0].data;
+            
+            labels.push(new Date().toLocaleTimeString());
+            dataset.push(data.metrics.heart_rate);
+            
+            if (labels.length > 20) {
+                labels.shift();
+                dataset.shift();
+            }
+            
+            heartRateChart.update('none'); // Update without animation for better performance
+
+            // Update daily stats
+            document.getElementById('stepsCount').textContent = data.metrics.steps.toLocaleString();
+            document.getElementById('sleepHours').textContent = data.metrics.sleep_hours + ' hours';
+            document.getElementById('hrvScore').textContent = data.metrics.hrv;
+            document.getElementById('hydrationLevel').textContent = data.metrics.hydration_level + '%';
+            document.getElementById('recoveryScore').textContent = data.metrics.recovery_score;
+        }
+    });
+
+    socket.on('risk_alert', (data) => {
+        console.log('Received risk alert:', data);
+        if (data.athlete_id === athleteId) {
+            const alertsDiv = document.getElementById('riskAlerts');
+            const alert = document.createElement('div');
+            alert.className = 'list-group-item list-group-item-danger';
+            alert.innerHTML = `
+                <h6 class="mb-1">High Risk Supplement Detected</h6>
+                <p class="mb-1">${data.message}</p>
+                <small>${new Date().toLocaleString()}</small>
+            `;
+            alertsDiv.insertBefore(alert, alertsDiv.firstChild);
+        }
+    });
+
+    // Load initial supplements
+    fetch(`/api/supplement/${athleteId}`)
+        .then(response => response.json())
+        .then(supplements => {
+            const supplementsDiv = document.getElementById('recentSupplements');
+            if (supplements.length > 0) {
+                supplementsDiv.innerHTML = supplements.map(supp => `
+                    <div class="list-group-item ${supp.risk_level === 'high' ? 'list-group-item-danger' : ''}">
+                        <h6 class="mb-1">${supp.name}</h6>
+                        <p class="mb-1">Dosage: ${supp.dosage}</p>
+                        <small>Risk Level: ${supp.risk_level}</small>
+                    </div>
+                `).join('');
+            }
+        })
+        .catch(error => console.error('Error loading supplements:', error));
+
+    // Request initial metrics
+    fetch(`/api/metrics/${athleteId}`)
+        .then(response => response.json())
+        .then(metrics => {
+            if (metrics && !metrics.error) {
+                document.getElementById('stepsCount').textContent = metrics.steps.toLocaleString();
+                document.getElementById('sleepHours').textContent = metrics.sleep_hours + ' hours';
+                document.getElementById('hrvScore').textContent = metrics.hrv;
+                document.getElementById('hydrationLevel').textContent = metrics.hydration_level + '%';
+                document.getElementById('recoveryScore').textContent = metrics.recovery_score;
+            }
+        })
+        .catch(error => console.error('Error loading initial metrics:', error));
+</script>
+{% endblock %}
